@@ -145,7 +145,6 @@ async function main () {
 
       await floodProtect(proced.items.map((item) => {
         return async () => {
-          console.log('HERE!!');
           const fPath = path.resolve(path.join(config.default.cacheDir, svcName + '-' + item.outageBotId));
           try {
             await fs.promises.stat(fPath);
