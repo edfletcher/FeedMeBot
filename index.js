@@ -108,13 +108,6 @@ async function connectIRCClient (connSpec) {
   return regPromise;
 }
 
-async function announce (sayFunc, svcName, item, fPath) {
-  const rendered = serviceSpecificRenderers[svcName](item);
-  console.log(`SAY'ing (svc: ${svcName}) "${rendered}"`);
-  await sayFunc(rendered);
-  return fs.promises.writeFile(fPath, JSON.stringify(item));
-}
-
 async function main () {
   logger('outage-bot');
 
@@ -144,20 +137,25 @@ async function main () {
       console.log(svcName, nextCheck, 'minutes', proced.items.length, 'items');
 
       await floodProtect(proced.items.map((item) => {
-        return async () => {
-          const fPath = path.resolve(path.join(config.default.cacheDir, svcName + '-' + item.outageBotId));
-          try {
-            await fs.promises.stat(fPath);
-            // if stat doesn't throw then fPath exists so we've already announced it; skip!
-            // TODO: better checking to ensure nothing has changed?
-            console.log(`Skipping already cached ${fPath}`, item);
-          } catch (err) {
-            // file doesn't exist meaning we've not announced this item yet: do so!
-            if (err.code === 'ENOENT') {
-              return announce(announceSayer, svcName, item, fPath);
-            }
+        const fPath = path.resolve(path.join(config.default.cacheDir, svcName + '-' + item.outageBotId));
+        try {
+          fs.statSync(fPath);
+          // if stat doesn't throw then fPath exists so we've already announced it; skip!
+          // TODO: better checking to ensure nothing has changed?
+          console.log(`Skipping already cached ${fPath}`);
+        } catch (err) {
+          // file doesn't exist meaning we've not announced this item yet: do so!
+          if (err.code === 'ENOENT') {
+            fs.promises.writeFile(fPath, JSON.stringify(item));
+            return async () => {
+              const rendered = serviceSpecificRenderers[svcName](item);
+              console.log(`SAY'ing (svc: ${svcName}) "${rendered}"`);
+              return announceSayer(rendered);
+            };
           }
-        };
+        }
+
+        return () => {}; // make es-lint happy...
       }));
 
       setTimeout(svcCheck, nextCheck * 1000 * 60);
