@@ -12,7 +12,8 @@ module.exports = {
     rss: {
       azure: 'https://azurestatuscdn.azureedge.net/en-us/status/feed/',
       gcp: 'https://status.cloud.google.com/en/feed.atom',
-      aws: 'https://status.aws.amazon.com/rss/all.rss'
+      aws: 'https://status.aws.amazon.com/rss/all.rss',
+      oracle: 'https://ocistatus.oraclecloud.com/history.rss'
     }
   },
 

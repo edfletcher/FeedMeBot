@@ -27,6 +27,12 @@ const serviceSpecificParsers = {
     return {
       items: feedObj.items.map(x => ({ outageBotId: consistentId(x.pubDate, x.isoDate, x.id), ...x }))
     };
+  },
+
+  oracle: (feedObj) => {
+    return {
+      items: feedObj.items.map(x => ({ outageBotId: consistentId(x.pubDate, x.isoDate, x.guid), ...x }))
+    };
   }
 };
 
@@ -41,6 +47,10 @@ const serviceSpecificRenderers = {
 
   gcp: (item) => {
     return `GCP event at ${new Date(item.pubDate).toLocaleString()}: "${item.title}" -- more info at ${item.link}`;
+  },
+
+  oracle: (item) => {
+    return `Oracle Cloud event at ${item.pubDate}: "${item.title}" -- more info at ${item.guid}`;
   }
 };
 
@@ -142,6 +152,8 @@ async function main () {
           fs.statSync(fPath);
           // if stat doesn't throw then fPath exists so we've already announced it; skip!
           // TODO: better checking to ensure nothing has changed?
+          // TODO: should `touch` cache file to update mtime... once the items fall out of the RSS,
+          // they won't get `touch`ed anymore and eventually we can use mtime to expire & remove them
           console.log(`Skipping already cached ${fPath}`);
         } catch (err) {
           // file doesn't exist meaning we've not announced this item yet: do so!
