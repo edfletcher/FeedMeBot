@@ -1,4 +1,5 @@
 node_modules/
+.certs/
 .cache/
 .logs/
 local.json

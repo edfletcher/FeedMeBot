@@ -8,15 +8,19 @@ const VERSION = PKGJSON.version;
 const NAME = PKGJSON.name;
 
 async function floodProtect (ops, ...args) {
+  if (!config.default.floodProtectWaitMs) {
+    throw new Error('config.default.floodProtectWaitMs not defined!');
+  }
+
   for (const op of ops) {
     await new Promise((resolve, reject) => {
       setTimeout(async () => {
         try {
-          resolve(await op(...args));
+          resolve(await (typeof op === 'function' ? op(...args) : op));
         } catch (e) {
           reject(e);
         }
-      }, config.irc.floodProtectWaitMs);
+      }, config.default.floodProtectWaitMs);
     });
   }
 }

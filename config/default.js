@@ -4,7 +4,8 @@ module.exports = {
   default: {
     pollingFrequencyMinutes: 7,
     cacheDir: './.cache',
-    logPath: './.logs'
+    logPath: './.logs',
+    floodProtectWaitMs: 5000
   },
 
   feeds: {
@@ -19,15 +20,19 @@ module.exports = {
     channel: '',
     server: {
       host: '',
-      port: 6667,
-      user: {
-        nick: '',
-        username: '',
-        gecos: '',
-        account: {
-          account: '',
-          password: ''
-        }
+      port: 6697,
+      tls: true,
+      sasl_mechanism: 'EXTERNAL',
+      enable_echomessage: true,
+      nick: '',
+      username: '',
+      gecos: '',
+      account: {
+        account: '',
+        password: ''
+      },
+      client_certificate: {
+        fromFile: ''
       }
     }
   }
