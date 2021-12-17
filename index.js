@@ -38,7 +38,7 @@ const serviceSpecificParsers = {
 
 const serviceSpecificRenderers = {
   aws: (item) => {
-    return `AWS event at ${item.pubDate}: "${item.title}" -- more info at ${item.guid}`;
+    return `AWS event at ${item.pubDate}: "${item.title}" -- ${item.guid}`;
   },
 
   azure: (item) => {
@@ -46,11 +46,11 @@ const serviceSpecificRenderers = {
   },
 
   gcp: (item) => {
-    return `GCP event at ${new Date(item.pubDate).toLocaleString()}: "${item.title}" -- more info at ${item.link}`;
+    return `GCP event at ${new Date(item.pubDate).toLocaleString()}: "${item.title}" -- ${item.link}`;
   },
 
   oracle: (item) => {
-    return `Oracle Cloud event at ${item.pubDate}: "${item.title}" -- more info at ${item.guid}`;
+    return `Oracle Cloud event at ${item.pubDate}: "${item.title}" -- ${item.guid}`;
   }
 };
 
@@ -137,15 +137,16 @@ async function main () {
   await ircClient.join(config.irc.channel);
 
   const announceSayer = ircClient.say.bind(ircClient, config.irc.channel);
-  await announceSayer('Hello, world!');
 
   for (const [svcName, feedUrl] of Object.entries(config.feeds.rss)) {
     const svcCheck = async () => {
       const parsed = await new RssParser().parseURL(feedUrl);
       const proced = serviceSpecificParsers[svcName](parsed);
       const nextCheck = Number(proced.next || config.default.pollingFrequencyMinutes);
-      console.log(svcName, nextCheck, 'minutes', proced.items.length, 'items');
 
+      // we *do* want to await here, so that the time required to send all the messages
+      // is accounted for in the next scheduled invocation (ensuring we never wrap back around on ourselves
+      // still sending a bunch of messages from last invocation)
       await floodProtect(proced.items.map((item) => {
         const fPath = path.resolve(path.join(config.default.cacheDir, svcName + '-' + item.outageBotId));
         try {
@@ -170,6 +171,7 @@ async function main () {
         return () => {}; // make es-lint happy...
       }));
 
+      console.log(svcName, nextCheck, 'minutes', proced.items.length, 'items');
       setTimeout(svcCheck, nextCheck * 1000 * 60);
     };
 
