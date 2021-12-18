@@ -14,17 +14,13 @@ const stats = {
   announced: 0
 };
 
+const genericParser = (feedObj) => ({ items: feedObj.items.map(x => ({ outageBotId: consistentId(x.pubDate, x.isoDate, x.guid | x.id), ...x })) });
+
 const serviceSpecificParsers = {
   aws: (feedObj) => {
     return {
       items: feedObj.items.map(x => ({ outageBotId: consistentId(x.pubDate, x.isoDate, x.guid), ...x })),
       next: feedObj.ttl
-    };
-  },
-
-  azure: (feedObj) => {
-    return {
-      items: feedObj.items
     };
   },
 
@@ -40,6 +36,9 @@ const serviceSpecificParsers = {
     };
   }
 };
+
+const genericRenderer = (item, svcName) => `${svcName} event at ${new Date(item.pubDate | item.isoDate).toLocaleString()}: ` +
+  `"${item.title}" -- ${item.link | item.guid}`;
 
 const serviceSpecificRenderers = {
   aws: (item) => {
@@ -216,7 +215,8 @@ async function main () {
   for (const [svcName, feedUrl] of Object.entries(config.feeds.rss)) {
     const svcCheck = async (silentRunning = false) => {
       const parsed = await new RssParser().parseURL(feedUrl);
-      const proced = serviceSpecificParsers[svcName](parsed);
+      const processor = serviceSpecificParsers[svcName] ?? genericParser;
+      const proced = processor(parsed);
       const nextCheck = Number(proced.next || config.default.pollingFrequencyMinutes);
 
       // we *do* want to await here, so that the time required to send all the messages
@@ -239,7 +239,8 @@ async function main () {
 
             return async () => {
               if (!silentRunning) {
-                const rendered = serviceSpecificRenderers[svcName](item);
+                const renderer = serviceSpecificRenderers[svcName] ?? genericRenderer;
+                const rendered = renderer(item, svcName);
                 console.log(`SAY'ing (svc: ${svcName}) "${rendered}"`);
                 ++stats.announced;
                 return announceSayer(rendered);
@@ -255,7 +256,7 @@ async function main () {
       setTimeout(svcCheck, nextCheck * 1000 * 60);
     };
 
-    svcCheck(true);
+    svcCheck(config.default.silentFirstRun);
   }
 }
 

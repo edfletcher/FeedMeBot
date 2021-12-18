@@ -7,7 +7,8 @@ module.exports = {
     logPath: './.logs',
     floodProtectWaitMs: 2500,
     commandFloodProtectWaitMs: 500,
-    commandPrefix: '@ob'
+    commandPrefix: '@ob',
+    silentFirstRun: true
   },
 
   feeds: {
