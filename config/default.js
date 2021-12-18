@@ -13,10 +13,10 @@ module.exports = {
 
   feeds: {
     rss: {
-      azure: 'https://azurestatuscdn.azureedge.net/en-us/status/feed/',
-      gcp: 'https://status.cloud.google.com/en/feed.atom',
-      aws: 'https://status.aws.amazon.com/rss/all.rss',
-      oracle: 'https://ocistatus.oraclecloud.com/history.rss'
+      Azure: 'https://azurestatuscdn.azureedge.net/en-us/status/feed/',
+      GCP: 'https://status.cloud.google.com/en/feed.atom',
+      AWS: 'https://status.aws.amazon.com/rss/all.rss',
+      Oracle: 'https://ocistatus.oraclecloud.com/history.rss'
     }
   },
 

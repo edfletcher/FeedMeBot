@@ -14,7 +14,7 @@ const stats = {
   announced: 0
 };
 
-const genericParser = (feedObj) => ({ items: feedObj.items.map(x => ({ outageBotId: consistentId(x.pubDate, x.isoDate, x.guid | x.id), ...x })) });
+const genericParser = (feedObj) => ({ items: feedObj.items.map(x => ({ outageBotId: consistentId(x.pubDate, x.isoDate, x.guid || x.id), ...x })) });
 
 const serviceSpecificParsers = {
   aws: (feedObj) => {
@@ -37,25 +37,17 @@ const serviceSpecificParsers = {
   }
 };
 
-const genericRenderer = (item, svcName) => `${svcName} event at ${new Date(item.pubDate | item.isoDate).toLocaleString()}: ` +
-  `"${item.title}" -- ${item.link | item.guid}`;
+const genericRenderer = (item, svcName) => `${svcName} event at ${new Date(item.pubDate || item.isoDate).toLocaleString()}: ` +
+  `"${item.title}" -- ${item.link || item.guid}`;
 
 const serviceSpecificRenderers = {
-  aws: (item) => {
-    return `AWS event at ${item.pubDate}: "${item.title}" -- ${item.guid}`;
-  },
+  aws: (item) => `AWS event at ${item.pubDate}: "${item.title}" -- ${item.guid}`,
 
-  azure: (item) => {
-    return `Azure event at ${item.pubDate}: "${item.title}" -- ${item.link}`;
-  },
+  azure: (item) => `Azure event at ${item.pubDate}: "${item.title}" -- ${item.link}`,
 
-  gcp: (item) => {
-    return `GCP event at ${new Date(item.pubDate).toLocaleString()}: "${item.title}" -- ${item.link}`;
-  },
+  gcp: (item) => `GCP event at ${new Date(item.pubDate).toLocaleString()}: "${item.title}" -- ${item.link}`,
 
-  oracle: (item) => {
-    return `Oracle Cloud event at ${item.pubDate}: "${item.title}" -- ${item.guid}`;
-  }
+  oracle: (item) => `Oracle Cloud event at ${item.pubDate}: "${item.title}" -- ${item.guid}`
 };
 
 // Should return an list of strings, one for each line to be sent in reply
@@ -123,6 +115,7 @@ async function connectIRCClient (connSpec) {
 
   const regPromise = new Promise((resolve, reject) => {
     ircClient.on('registered', resolve.bind(null, ircClient));
+    // todo: should have a timeout for reject...
   });
 
   ['debug', 'quit', 'reconnecting', 'close', 'socket close', 'kick', 'ban', 'join',
@@ -223,7 +216,8 @@ async function main () {
       // is accounted for in the next scheduled invocation (ensuring we never wrap back around on ourselves
       // still sending a bunch of messages from last invocation)
       await floodProtect(config.default.floodProtectWaitMs, proced.items.map((item) => {
-        const fPath = path.resolve(path.join(config.default.cacheDir, svcName + '-' + item.outageBotId));
+        const svcNameLc = svcName.toLowerCase();
+        const fPath = path.resolve(path.join(config.default.cacheDir, svcNameLc + '-' + item.outageBotId));
         try {
           fs.statSync(fPath);
           // if stat doesn't throw then fPath exists so we've already announced it; skip!
@@ -239,7 +233,7 @@ async function main () {
 
             return async () => {
               if (!silentRunning) {
-                const renderer = serviceSpecificRenderers[svcName] ?? genericRenderer;
+                const renderer = serviceSpecificRenderers[svcNameLc] ?? genericRenderer;
                 const rendered = renderer(item, svcName);
                 console.log(`SAY'ing (svc: ${svcName}) "${rendered}"`);
                 ++stats.announced;
