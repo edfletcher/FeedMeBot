@@ -59,6 +59,21 @@ const serviceSpecificRenderers = {
   }
 };
 
+// Should return an list of strings, one for each line to be sent in reply
+const commands = {
+  uptime: async () => [`I've been running for ${fmtDuration(stats.upSince)} ` +
+    `& have announced ${stats.announced} outage events during that time.`],
+
+  feeds: async () => [
+    `I'm following these ${Object.entries(config.feeds.rss).length} RSS feeds:`,
+    ...Object.entries(config.feeds.rss).map(([prov, feedUrl]) => `${feedUrl} (${prov})`)
+  ],
+
+  help: async () => Object.keys(commands)
+};
+
+const privMsgOnlyCommands = ['help', 'uptime'];
+
 async function connectIRCClient (connSpec) {
   if (connSpec.account && !connSpec.account.password && !connSpec.client_certificate) {
     const { password } = await inq.prompt({
@@ -123,24 +138,18 @@ async function connectIRCClient (connSpec) {
   return regPromise;
 }
 
-// Should return an list of strings, one for each line to be sent in reply
-const commands = {
-  uptime: async () => [`I've been running for ${fmtDuration(stats.upSince)} ` +
-    `& have announced ${stats.announced} outage events during that time.`],
-  feeds: async () => [
-    `I'm following these ${Object.entries(config.feeds.rss).length} RSS feeds:`,
-    ...Object.entries(config.feeds.rss).map(([prov, feedUrl]) => `${feedUrl} (${prov})`)
-  ],
-  help: async () => Object.keys(commands)
-};
-
-const privMsgOnlyCommands = ['help'];
-
 async function commandHandler (client, msgObj) {
-  const [trigger, command, ...args] = msgObj.message.trim().split(/\s+/g);
+  let privMsgReply = msgObj.target === config.irc.server.nick;
+  let [trigger, command, ...args] = msgObj.message.trim().split(/\s+/g);
 
-  if (trigger !== config.default.commandPrefix) {
+  if (!privMsgReply && trigger !== config.default.commandPrefix) {
     return;
+  }
+
+  // without trigger, have to swap everything down 1 position
+  if (privMsgReply) {
+    args = [command, ...args];
+    command = trigger;
   }
 
   const handler = commands[command];
@@ -149,7 +158,6 @@ async function commandHandler (client, msgObj) {
     return;
   }
 
-  let privMsgReply = msgObj.target === config.irc.server.nick;
   let replyTarget = privMsgReply ? msgObj.nick : msgObj.target;
   const reply = await handler(...args);
 
