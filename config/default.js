@@ -5,7 +5,9 @@ module.exports = {
     pollingFrequencyMinutes: 7,
     cacheDir: './.cache',
     logPath: './.logs',
-    floodProtectWaitMs: 5000
+    floodProtectWaitMs: 2500,
+    commandFloodProtectWaitMs: 500,
+    commandPrefix: '@ob'
   },
 
   feeds: {
@@ -19,6 +21,7 @@ module.exports = {
 
   irc: {
     channel: '',
+    forceAuthAfterReg: false,
     server: {
       host: '',
       port: 6697,
