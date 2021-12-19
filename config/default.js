@@ -5,10 +5,11 @@ module.exports = {
     pollingFrequencyMinutes: 7,
     cacheDir: './.cache',
     logPath: './.logs',
-    floodProtectWaitMs: 2500,
-    commandFloodProtectWaitMs: 500,
+    floodProtectWaitMs: 1500,
+    commandFloodProtectWaitMs: 250,
     commandPrefix: '@ob',
-    silentFirstRun: true
+    silentFirstRun: true,
+    numberPrivMsgLines: false
   },
 
   feeds: {

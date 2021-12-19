@@ -7,7 +7,7 @@ const config = require('config');
 const logger = require('./logger');
 const irc = require('irc-framework');
 const RssParser = require('rss-parser');
-const { consistentId, floodProtect, fmtDuration } = require('./util');
+const { consistentId, floodProtect, fmtDuration, VERSION, NAME } = require('./util');
 
 const stats = {
   upSince: new Date(),
@@ -68,10 +68,37 @@ try {
 
 const privMsgOnlyCommands = ['help', 'notify'];
 
-// Should return an list of strings, one for each line to be sent in reply
+const commandHelpText = {
+  uptime: {
+    short: 'Displays my uptime and announcement count.'
+  },
+
+  feeds: {
+    short: 'A list of all the feeds I\'m following.'
+  },
+
+  help: {
+    short: 'This help! "help [command]" for more help with "command".'
+  },
+
+  notify: {
+    short: 'Manage announcement notification settings.',
+    usage: [
+      'subCommand service',
+      `where "service" may be "all", or one of: ${Object.keys(config.feeds.rss).map((x) => x.toLowerCase()).join(', ')}`
+    ],
+    subCommands: {
+      add: 'Add yourself to the notification list for the given service.',
+      delete: 'Remove yourself to the notification list for the given service.',
+      list: 'Show the notification list for the given service.'
+    }
+  }
+};
+
+// Each handler function must return a list of strings, one for each line to be sent in reply
 const commands = {
-  uptime: async () => [`I've been running for ${fmtDuration(stats.upSince)} ` +
-    `& have announced ${stats.announced} outage events during that time.`],
+  uptime: async () => [`I've been online for ${fmtDuration(stats.upSince)} ` +
+    `& have made ${stats.announced} announcements during that time.`],
 
   feeds: async () => [
     `I'm following these ${Object.entries(config.feeds.rss).length} RSS feeds:`,
@@ -79,8 +106,8 @@ const commands = {
   ],
 
   notify: async (msgObj, subCmd, service) => {
-    service = service.toLowerCase();
-    subCmd = subCmd.toLowerCase();
+    service = service && service.toLowerCase();
+    subCmd = subCmd && subCmd.toLowerCase();
     const svcNotifySet = notify[service];
 
     if (!svcNotifySet && service !== 'all') {
@@ -98,7 +125,9 @@ const commands = {
         ));
       };
     } else if (subCmd === 'list') {
-      cmdFunc = async () => [...svcNotifySet];
+      cmdFunc = async () => service === 'all'
+        ? Object.entries(notify).reduce((a, [sv, s]) => (a.concat([`${sv}: ${[...s].join(', ')}`])), [])
+        : [[...svcNotifySet].join(', ')];
     }
 
     if (!cmdFunc) {
@@ -108,7 +137,33 @@ const commands = {
     return cmdFunc();
   },
 
-  help: async () => Object.keys(commands)
+  help: async (_msgObj, subCmd) => {
+    if (!subCmd) {
+      const padTo = Object.keys(commands).reduce((a, x) => Math.max(a, x.length), 0) + 1;
+      return [`I am ${NAME} v${VERSION} and these are the commands that I understand:`,
+        ...Object.keys(commands).sort().map((cmd) => `  ${cmd.padStart(padTo, ' ')} -- ${commandHelpText[cmd].short}`)];
+    }
+
+    const help = commandHelpText[subCmd];
+
+    if (!help) {
+      return [`Invalid subcommand "${subCmd}"`];
+    }
+
+    let retList = [help.short];
+
+    if (help.usage) {
+      retList = retList.concat([`Usage: ${subCmd} ${help.usage[0]}`, ...help.usage.slice(1).map(x => `  ${x}`)]);
+    }
+
+    if (help.subCommands) {
+      const padTo = Object.keys(help.subCommands).reduce((a, x) => Math.max(a, x.length), 0) + 1;
+      retList = retList.concat(['Subcommands:', ...Object.entries(help.subCommands)
+        .map(([sc, txt]) => `  ${sc.padStart(padTo, ' ')} -- ${txt}`)]);
+    }
+
+    return retList;
+  }
 };
 
 async function connectIRCClient (connSpec) {
@@ -211,8 +266,10 @@ async function commandHandler (client, msgObj) {
 
     console.log(`replying to ${command} with "${reply.join('|')}" on ${replyTarget}`);
 
+    const numLines = reply.length;
     await floodProtect(config.default.commandFloodProtectWaitMs,
-      reply.map((replyLine) => async () => client.say(replyTarget, replyLine)));
+      reply.map((replyLine, i) => async () =>
+        client.say(replyTarget, replyLine + (config.default.numberPrivMsgLines && privMsgReply ? ` (${i + 1}/${numLines})` : ''))));
   } else {
     console.log(`executed command ${command} but it produced no reply`);
     client.say(replyTarget, `Command \`${command}\` ran successfully.`);

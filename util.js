@@ -21,7 +21,7 @@ async function floodProtect (delay, ops, ...args) {
         } catch (e) {
           reject(e);
         }
-      });
+      }, delay);
     });
   }
 }
