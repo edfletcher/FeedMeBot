@@ -17,6 +17,9 @@ module.exports = {
       GCP: 'https://status.cloud.google.com/en/feed.atom',
       AWS: 'https://status.aws.amazon.com/rss/all.rss',
       Oracle: 'https://ocistatus.oraclecloud.com/history.rss'
+    },
+    notifications: {
+      cacheFile: './.notification.settings'
     }
   },
 

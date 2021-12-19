@@ -50,6 +50,24 @@ const serviceSpecificRenderers = {
   oracle: (item) => `Oracle Cloud event at ${item.pubDate}: "${item.title}" -- ${item.guid}`
 };
 
+let notify;
+
+// TODO: move all of this!
+try {
+  const notifyCache = path.resolve(config.feeds.notifications.cacheFile);
+  fs.statSync(notifyCache);
+  notify = Object.entries(JSON.parse(fs.readFileSync(notifyCache)))
+    .reduce((a, [k, list]) => ({ [k]: new Set(list), ...a }), {});
+} catch (err) {
+  if (err.code !== 'ENOENT') {
+    console.error(`Had trouble parsing the notification settings cache! ${err.message}`, err.stack);
+  }
+
+  notify = Object.keys(config.feeds.rss).reduce((a, k) => ({ [k.toLowerCase()]: new Set(), ...a }), {});
+}
+
+const privMsgOnlyCommands = ['help', 'notify'];
+
 // Should return an list of strings, one for each line to be sent in reply
 const commands = {
   uptime: async () => [`I've been running for ${fmtDuration(stats.upSince)} ` +
@@ -60,10 +78,38 @@ const commands = {
     ...Object.entries(config.feeds.rss).map(([prov, feedUrl]) => `${feedUrl} (${prov})`)
   ],
 
+  notify: async (msgObj, subCmd, service) => {
+    service = service.toLowerCase();
+    subCmd = subCmd.toLowerCase();
+    const svcNotifySet = notify[service];
+
+    if (!svcNotifySet && service !== 'all') {
+      return [`Invalid service ${service}`];
+    }
+
+    let cmdFunc;
+    if (['add', 'delete'].includes(subCmd)) {
+      const innerFunc = (svcList) => svcList.forEach((svc) => notify[svc.toLowerCase()][subCmd](msgObj.nick));
+
+      cmdFunc = async () => {
+        innerFunc(service === 'all' ? Object.keys(config.feeds.rss) : [service]);
+        return fs.promises.writeFile(path.resolve(config.feeds.notifications.cacheFile), JSON.stringify(
+          Object.entries(notify).reduce((a, [k, set]) => ({ [k]: [...set], ...a }), {}), null, 2
+        ));
+      };
+    } else if (subCmd === 'list') {
+      cmdFunc = async () => [...svcNotifySet];
+    }
+
+    if (!cmdFunc) {
+      return [`Invalid subCommand "${subCmd}"`];
+    }
+
+    return cmdFunc();
+  },
+
   help: async () => Object.keys(commands)
 };
-
-const privMsgOnlyCommands = ['help', 'uptime'];
 
 async function connectIRCClient (connSpec) {
   if (connSpec.account && !connSpec.account.password && !connSpec.client_certificate) {
@@ -151,7 +197,7 @@ async function commandHandler (client, msgObj) {
   }
 
   let replyTarget = privMsgReply ? msgObj.nick : msgObj.target;
-  const reply = await handler(...args);
+  const reply = await handler(msgObj, ...args);
 
   if (reply && reply.length) {
     if (!privMsgReply && privMsgOnlyCommands.includes(command)) {
@@ -169,6 +215,7 @@ async function commandHandler (client, msgObj) {
       reply.map((replyLine) => async () => client.say(replyTarget, replyLine)));
   } else {
     console.log(`executed command ${command} but it produced no reply`);
+    client.say(replyTarget, `Command \`${command}\` ran successfully.`);
   }
 
   console.debug(command, msgObj, args, reply);
@@ -234,7 +281,12 @@ async function main () {
             return async () => {
               if (!silentRunning) {
                 const renderer = serviceSpecificRenderers[svcNameLc] ?? genericRenderer;
-                const rendered = renderer(item, svcName);
+                let rendered = renderer(item, svcName);
+
+                if (notify[svcNameLc].size) {
+                  rendered += ` /cc: ${[...notify[svcNameLc]].join(', ')}`;
+                }
+
                 console.log(`SAY'ing (svc: ${svcName}) "${rendered}"`);
                 ++stats.announced;
                 return announceSayer(rendered);
