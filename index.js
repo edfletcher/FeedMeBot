@@ -134,7 +134,13 @@ const commands = {
       return null;
     }
 
-    return cmdFunc();
+    try {
+      const rv = await cmdFunc();
+      return Array.isArray(rv) ? rv : [];
+    } catch (err) {
+      console.error(`notify subCommand ${subCmd} threw! ${err.message}`, err.stack, msgObj);
+      return null;
+    }
   },
 
   help: async (_msgObj, subCmd) => {
@@ -275,7 +281,7 @@ async function commandHandler (client, msgObj) {
     await fpSay(reply);
   } else if (reply) {
     console.log(`executed command ${command} but it produced no reply`);
-    client.say(replyTarget, `Command \`${command}\` ran successfully.`);
+    client.say(replyTarget, `Command "${command}" ran successfully.`);
   } else {
     await fpSay(await commands.help(msgObj, command));
   }
