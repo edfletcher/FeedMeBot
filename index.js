@@ -111,7 +111,7 @@ const commands = {
     const svcNotifySet = notify[service];
 
     if (!svcNotifySet && service !== 'all') {
-      return [`Invalid service ${service}`];
+      return null;
     }
 
     let cmdFunc;
@@ -131,7 +131,7 @@ const commands = {
     }
 
     if (!cmdFunc) {
-      return [`Invalid subCommand "${subCmd}"`];
+      return null;
     }
 
     return cmdFunc();
@@ -251,6 +251,13 @@ async function commandHandler (client, msgObj) {
     return;
   }
 
+  const fpSay = async (lines) => {
+    const numLines = lines.length;
+    return floodProtect(config.default.commandFloodProtectWaitMs,
+      lines.map((replyLine, i) => async () =>
+        client.say(replyTarget, replyLine + (config.default.numberPrivMsgLines && privMsgReply ? ` (${i + 1}/${numLines})` : ''))));
+  };
+
   let replyTarget = privMsgReply ? msgObj.nick : msgObj.target;
   const reply = await handler(msgObj, ...args);
 
@@ -265,14 +272,12 @@ async function commandHandler (client, msgObj) {
     }
 
     console.log(`replying to ${command} with "${reply.join('|')}" on ${replyTarget}`);
-
-    const numLines = reply.length;
-    await floodProtect(config.default.commandFloodProtectWaitMs,
-      reply.map((replyLine, i) => async () =>
-        client.say(replyTarget, replyLine + (config.default.numberPrivMsgLines && privMsgReply ? ` (${i + 1}/${numLines})` : ''))));
-  } else {
+    await fpSay(reply);
+  } else if (reply) {
     console.log(`executed command ${command} but it produced no reply`);
     client.say(replyTarget, `Command \`${command}\` ran successfully.`);
+  } else {
+    await fpSay(await commands.help(msgObj, command));
   }
 
   console.debug(command, msgObj, args, reply);

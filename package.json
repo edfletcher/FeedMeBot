@@ -1,6 +1,6 @@
 {
   "name": "outage-bot",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Service outage monitoring bot for IRC",
   "main": "index.js",
   "engines": {
