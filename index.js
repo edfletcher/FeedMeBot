@@ -97,7 +97,7 @@ const commandHelpText = {
 
 // Each handler function must return a list of strings, one for each line to be sent in reply
 const commands = {
-  uptime: async () => [`I've been online for ${fmtDuration(stats.upSince)} ` +
+  uptime: async () => [`I've been online for ${fmtDuration(stats.upSince)} (with ${pinger.lastLatency}ms latency at the moment) ` +
     `& have made ${stats.announced} announcements during that time.`],
 
   feeds: async () => [
@@ -304,7 +304,8 @@ function pinger (client, immediate) {
     client.on('pong', (e) => {
       if (e.message && e.message.indexOf(pinger.prefix) === 0) {
         const [, pingTs] = e.message.split(pinger.tsDelim);
-        console.log('Current latency is', new Date() - Number(pingTs), 'ms');
+        pinger.lastLatency = new Date() - Number(pingTs);
+        console.log('Current latency is', pinger.lastLatency, 'ms');
       }
     });
 
