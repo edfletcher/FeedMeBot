@@ -289,6 +289,35 @@ async function commandHandler (client, msgObj) {
   console.debug(command, msgObj, args, reply);
 }
 
+function pinger (client, immediate) {
+  const _pinger = () => {
+    pinger.client.ping([pinger.prefix, Number(new Date()).toString()].join(pinger.tsDelim));
+    delete pinger.stHandle;
+    pinger(); // reschedule, but without `client` so as to _not_ reinitialize
+  };
+
+  if (!pinger.prefix && client) {
+    pinger.prefix = [NAME, VERSION].join('-');
+    pinger.tsDelim = '_';
+    pinger.client = client;
+
+    client.on('pong', (e) => {
+      if (e.message && e.message.indexOf(pinger.prefix) === 0) {
+        const [, pingTs] = e.message.split(pinger.tsDelim);
+        console.log('Current latency is', new Date() - Number(pingTs), 'ms');
+      }
+    });
+
+    if (immediate || process.env.DEBUG) {
+      _pinger();
+    }
+  }
+
+  if (!pinger.stHandle) {
+    pinger.stHandle = setTimeout(_pinger, config.default.pingIntervalMinutes * 1000 * 60);
+  }
+}
+
 async function main () {
   logger('main');
 
@@ -304,17 +333,24 @@ async function main () {
     }
   }
 
+  console.log(`Connecting to ${config.irc.server.host}:${config.irc.server.port}...`);
+  const connStart = new Date();
   const ircClient = await connectIRCClient(config.irc.server);
 
   if (config.irc.forceAuthAfterReg) {
     await ircClient.say('NickServ', 'login', config.irc.server.account.password);
   }
 
+  pinger(ircClient, true);
+
   ircClient.on('message', commandHandler.bind(null, ircClient));
   await ircClient.join(config.irc.channel);
 
+  console.log(`Finished connecting in ${fmtDuration(connStart)}`);
+
   process.on('SIGINT', async () => {
     await ircClient.part(config.irc.channel);
+    clearTimeout(pinger.stHandle);
     setTimeout(() => process.exit(0), 1000);
   });
 
@@ -322,6 +358,7 @@ async function main () {
 
   for (const [svcName, feedUrl] of Object.entries(config.feeds.rss)) {
     const svcCheck = async (silentRunning = false) => {
+      const procStart = new Date();
       const parsed = await new RssParser().parseURL(feedUrl);
       const processor = serviceSpecificParsers[svcName] ?? genericParser;
       const proced = processor(parsed);
@@ -339,7 +376,7 @@ async function main () {
           // TODO: better checking to ensure nothing has changed?
           // TODO: should `touch` cache file to update mtime... once the items fall out of the RSS,
           // they won't get `touch`ed anymore and eventually we can use mtime to expire & remove them
-          console.log(`Skipping already cached ${fPath}`);
+          console.debug(`Skipping already cached ${fPath}`);
         } catch (err) {
           // file doesn't exist meaning we've not announced this item yet: do so!
           if (err.code === 'ENOENT') {
@@ -366,7 +403,7 @@ async function main () {
         return () => {}; // make es-lint happy...
       }));
 
-      console.log(svcName, nextCheck, 'minutes', proced.items.length, 'items');
+      console.log(svcName, 'processed', proced.items.length, 'items in', fmtDuration(procStart), '& will next check in', nextCheck, 'minutes');
       setTimeout(svcCheck, nextCheck * 1000 * 60);
     };
 
