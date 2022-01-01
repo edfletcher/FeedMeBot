@@ -341,12 +341,12 @@ async function main () {
     await ircClient.say('NickServ', 'login', config.irc.server.account.password);
   }
 
-  pinger(ircClient, true);
-
   ircClient.on('message', commandHandler.bind(null, ircClient));
   await ircClient.join(config.irc.channel);
 
   console.log(`Finished connecting in ${fmtDuration(connStart)}`);
+
+  pinger(ircClient, true);
 
   process.on('SIGINT', async () => {
     await ircClient.part(config.irc.channel);
