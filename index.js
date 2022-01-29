@@ -360,7 +360,15 @@ async function main () {
   for (const [svcName, feedUrl] of Object.entries(config.feeds.rss)) {
     const svcCheck = async (silentRunning = false) => {
       const procStart = new Date();
-      const parsed = await new RssParser().parseURL(feedUrl);
+
+      let parsed;
+      try {
+        parsed = await new RssParser().parseURL(feedUrl);
+      } catch (e) {
+        console.error('RssParser failed: ', e);
+        return;
+      }
+
       const processor = serviceSpecificParsers[svcName] ?? genericParser;
       const proced = processor(parsed);
       const nextCheck = Number(proced.next || config.default.pollingFrequencyMinutes);
