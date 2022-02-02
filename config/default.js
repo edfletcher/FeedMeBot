@@ -18,7 +18,9 @@ module.exports = {
       Azure: 'https://azurestatuscdn.azureedge.net/en-us/status/feed/',
       GCP: 'https://status.cloud.google.com/en/feed.atom',
       AWS: 'https://status.aws.amazon.com/rss/all.rss',
-      Oracle: 'https://ocistatus.oraclecloud.com/history.rss'
+      Oracle: 'https://ocistatus.oraclecloud.com/history.rss',
+      Github: 'https://www.githubstatus.com/history.rss',
+      Twitter: 'https://api.twitterstat.us/history.rss'
     },
     notifications: {
       cacheFile: './.notification.settings'
