@@ -8,6 +8,7 @@ module.exports = {
     floodProtectWaitMs: 1500,
     commandFloodProtectWaitMs: 250,
     commandPrefix: '@ob',
+    allowedCommanders: [],
     silentFirstRun: true,
     numberPrivMsgLines: false,
     pingIntervalMinutes: 3

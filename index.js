@@ -245,6 +245,11 @@ async function commandHandler (client, msgObj) {
     return;
   }
 
+  if (trigger === config.default.commandPrefix && !config.default.allowedCommanders.includes(msgObj.nick)) {
+    console.warn(`"${msgObj.nick}" <${msgObj.ident}@${msgObj.hostname}> attempted to invoke: ${msgObj.message}`);
+    return;
+  }
+
   // without trigger, have to swap everything down 1 position
   if (privMsgReply) {
     args = [command, ...args];
