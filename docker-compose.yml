@@ -1,0 +1,8 @@
+services:
+  outage-bot:
+    build: &default-build-spec
+      context: .
+      dockerfile: Dockerfile
+      target: outage-bot
+    network_mode: "host"
+    restart: always
